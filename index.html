@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS Fasilitas Kesehatan</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="BatasAdministrasiKelurahan_3.js"></script>
+    <script src="RumahSakit_5.js"></script>
+    <script src="Output_OD_Matrixvirtual_0.js"></script> 
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        .mesh-bg {
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(220, 100%, 75%, 0.5) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(150, 100%, 75%, 0.5) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, hsla(220, 100%, 75%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, hsla(220, 100%, 70%, 0.4) 0px, transparent 50%);
+        }
+
+        #map { height: 100%; width: 100%; z-index: 1; }
+
+        .label-kelurahan {
+            background: transparent; border: transparent; box-shadow: none; font-weight: 700; color: #1e3a8a;
+            font-size: 0.85rem; text-shadow: 2px 2px 4px #ffffff, -2px -2px 4px #ffffff, 2px -2px 4px #ffffff, -2px 2px 4px #ffffff;
+        }
+
+        .icon-rs { background-color: white; border: 2px solid #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .icon-rs-horizontal { background-color: #3b82f6; width: 14px; height: 4px; position: absolute; border-radius: 2px; }
+        .icon-rs-vertical { background-color: #3b82f6; width: 4px; height: 14px; position: absolute; border-radius: 2px; }
+
+        .icon-rs-max { background: linear-gradient(135deg, #2563eb, #10b981); border: 2px solid white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }
+        .icon-rs-horizontal-max { background-color: white; width: 16px; height: 4px; position: absolute; border-radius: 2px; }
+        .icon-rs-vertical-max { background-color: white; width: 4px; height: 16px; position: absolute; border-radius: 2px; }
+
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        @keyframes bounce-subtle {
+            0%, 100% { transform: translateY(-5%) translateX(-50%); }
+            50% { transform: translateY(5%) translateX(-50%); }
+        }
+        .animate-bounce-subtle { animation: bounce-subtle 2s infinite ease-in-out; }
+
+        /* Animasi Fade Observer */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+            visibility: hidden;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+            visibility: visible;
+        }
+        .reveal-delay-1 { transition-delay: 0.1s; }
+        .reveal-delay-2 { transition-delay: 0.3s; }
+        .reveal-delay-3 { transition-delay: 0.5s; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- ========================================== -->
+    <!-- SECTION 1: LANDING PAGE -->
+    <!-- ========================================== -->
+    <section class="w-full h-screen relative flex flex-col items-center justify-center mesh-bg overflow-hidden border-b-8 border-gray-900">
+        
+        <svg class="absolute top-20 left-32 w-24 h-24 text-blue-600/30" fill="currentColor" viewBox="0 0 100 100">
+            <pattern id="dots1" x="0" y="0" width="15" height="15" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2"></circle></pattern>
+            <rect x="0" y="0" width="100" height="100" fill="url(#dots1)"></rect>
+        </svg>
+
+        <svg class="absolute bottom-24 right-32 w-32 h-16 text-blue-600/30" fill="currentColor" viewBox="0 0 100 100">
+            <pattern id="dots2" x="0" y="0" width="15" height="15" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2"></circle></pattern>
+            <rect x="0" y="0" width="100" height="100" fill="url(#dots2)"></rect>
+        </svg>
+
+        <svg class="absolute top-1/3 left-16 lg:left-32 w-48 h-48 opacity-60" viewBox="0 0 100 100" style="transform: rotate(15deg);">
+            <g fill="url(#grad-star)"><rect x="42" y="10" width="16" height="80" rx="4"/><rect x="10" y="42" width="80" height="16" rx="4"/><rect x="20" y="20" width="60" height="16" rx="4" transform="rotate(45 50 50)"/><rect x="20" y="20" width="60" height="16" rx="4" transform="rotate(-45 50 50)"/></g>
+            <defs><linearGradient id="grad-star" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#34d399" stop-opacity="0.8"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0.2"/></linearGradient></defs>
+        </svg>
+
+        <!-- PERBAIKAN: Membungkus elemen header agar posisi absolut (center) tidak tertimpa oleh animasi reveal -->
+        <div class="absolute top-12 left-1/2 transform -translate-x-1/2 w-[90%] max-w-5xl z-20">
+            <div class="flex justify-between items-center bg-white/40 backdrop-blur-md border border-white/80 rounded-full pl-6 pr-2 py-2 shadow-sm reveal active">
+                <span class="text-sm font-bold text-teal-600 tracking-wider">SISTEM INFORMASI PERENCANAAN</span>
+                <span class="bg-gradient-to-r from-blue-600 to-emerald-400 text-white text-sm font-bold py-2 px-8 rounded-full shadow-md">SIP</span>
+            </div>
+        </div>
+
+        <div class="z-20 text-center px-4 max-w-6xl mt-10 reveal reveal-delay-1 active">
+            <h1 class="text-5xl md:text-6xl lg:text-[5.5rem] font-black tracking-tight leading-[1.1] uppercase bg-gradient-to-r from-indigo-700 via-blue-600 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
+                BEYOND DISTANCE: ANALISIS DAYA TARIK RUMAH SAKIT DI SURABAYA TIMUR DENGAN HUFF MODEL
+            </h1>
+        </div>
+
+        <div class="z-20 mt-16 flex items-center bg-white/40 backdrop-blur-md border border-white/80 rounded-full pl-8 pr-2 py-2 shadow-sm reveal reveal-delay-2 active">
+            <span class="text-[10px] font-extrabold text-indigo-700 tracking-widest mr-8">KELOMPOK 06</span>
+            <span class="bg-gradient-to-r from-blue-600 to-emerald-400 text-white text-[10px] font-bold py-2 px-6 rounded-full shadow-md">TUGAS BESAR</span>
+        </div>
+
+        <div class="absolute bottom-12 right-12 z-20 flex items-center bg-white/50 backdrop-blur-md border border-white/80 rounded-full pl-4 pr-1.5 py-1.5 shadow-sm reveal reveal-delay-3 active">
+            <span class="text-[10px] font-extrabold text-indigo-800 tracking-wider mr-3">PAGE</span>
+            <span class="bg-gradient-to-r from-blue-600 to-emerald-400 text-white text-[10px] font-bold py-1 px-3 rounded-full">01</span>
+        </div>
+
+        <a href="#section-peta" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex flex-col items-center text-blue-800 opacity-60 hover:opacity-100 transition-opacity animate-bounce-subtle z-30 cursor-pointer">
+            <span class="text-[10px] font-bold tracking-widest mb-1">SCROLL TO MAP</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+        </a>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECTION 2: MAP INTERFACE -->
+    <!-- ========================================== -->
+    <section id="section-peta" class="w-full h-screen flex relative border-b-8 border-gray-900 reveal">
+        
+        <aside class="w-full lg:w-1/3 xl:w-1/4 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.05)] z-10 flex flex-col hidden lg:flex relative border-r border-gray-200">
+            <div class="p-6 bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
+                <div class="inline-block border border-blue-400 rounded-full px-3 py-1 mb-3 bg-white">
+                    <span class="text-[10px] font-bold text-blue-600 tracking-wider uppercase">Sistem Informasi Perencanaan</span>
+                </div>
+                <h2 class="text-2xl font-extrabold tracking-tight text-gray-800 leading-tight pb-1">
+                    Analisis Fasilitas Kesehatan
+                </h2>
+                <p class="text-[11px] mt-1 text-gray-500 font-semibold tracking-wide">ANALISIS DAYA TARIK RUMAH SAKIT DI SURABAYA TIMUR</p>
+            </div>
+
+            <div class="p-6 flex-grow overflow-y-auto bg-white custom-scroll">
+                
+                <div class="mb-5 relative">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" id="search-rs" placeholder="Cari Rumah Sakit..." autocomplete="off" class="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition-all shadow-sm text-gray-700 placeholder-gray-400">
+                    </div>
+                    <div id="search-results" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg hidden max-h-48 overflow-y-auto custom-scroll"></div>
+                </div>
+
+                <div class="mb-6 bg-gray-50 p-4 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex flex-col space-y-3 text-sm font-semibold text-gray-600">
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" id="toggle-kelurahan" checked class="form-checkbox h-4 w-4 text-emerald-500 rounded border-gray-300 focus:ring-emerald-500">
+                            <span>Layer Batas Kelurahan</span>
+                        </label>
+                        <label class="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" id="toggle-rs" checked class="form-checkbox h-4 w-4 text-emerald-500 rounded border-gray-300 focus:ring-emerald-500">
+                            <span>Titik Rumah Sakit</span>
+                        </label>
+                        <div class="pt-2 mt-2 border-t border-gray-200">
+                            <label class="flex items-center space-x-3 cursor-pointer text-blue-700">
+                                <input type="checkbox" id="toggle-catchment" class="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                                <span>Mode Catchment Area (Warna RS)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="info-panel" class="bg-gray-50 p-5 rounded-2xl border border-gray-200 shadow-sm mb-5 transition-all duration-300">
+                    <p class="text-gray-400 text-xs text-center font-medium">Pilih salah satu titik di peta untuk melihat informasi fasilitas kesehatan.</p>
+                </div>
+
+                <div id="info-kelurahan" class="bg-gray-50 p-5 rounded-2xl border border-gray-200 shadow-sm">
+                    <p class="text-gray-400 text-xs text-center font-medium">Klik area kelurahan di peta untuk melihat data penduduk.</p>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-grow relative h-full">
+            <div id="map"></div>
+            
+            <div id="legend-catchment" class="absolute bottom-6 right-6 z-[1000] bg-white/90 backdrop-blur-xl p-5 rounded-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] hidden max-h-80 overflow-y-auto custom-scroll w-64 transition-opacity duration-300">
+                <div class="flex items-center mb-3 border-b border-gray-200 pb-2">
+                    <svg class="w-4 h-4 text-emerald-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                    <h4 class="text-xs font-extrabold text-gray-800 uppercase tracking-wider">Legenda Dominansi RS</h4>
+                </div>
+                <div id="legend-content" class="flex flex-col space-y-2.5"></div>
+            </div>
+
+            <!-- Tombol Next ke Visualisasi Data -->
+            <a href="#section-data" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex flex-col items-center justify-center bg-white/90 backdrop-blur-md border border-gray-200 px-6 py-2 rounded-full shadow-[0_4px_20px_rgb(0,0,0,0.1)] text-blue-700 opacity-80 hover:opacity-100 hover:scale-105 hover:bg-blue-50 transition-all animate-bounce-subtle cursor-pointer">
+                <span class="text-[10px] font-bold tracking-widest mb-0.5 uppercase">Lanjut ke Data</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+            </a>
+        </main>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECTION 3: DATA / GRAFIK -->
+    <!-- ========================================== -->
+    <section id="section-data" class="w-full min-h-screen relative flex flex-col items-center justify-center mesh-bg border-b-8 border-gray-900 py-24 px-6 lg:px-10 z-20">
+        
+        <div class="z-20 text-center mb-12 reveal">
+            <div class="inline-block border border-blue-400 rounded-full px-4 py-1 mb-3 bg-white">
+                <span class="text-[12px] font-bold text-blue-600 tracking-wider uppercase">Visualisasi Data</span>
+            </div>
+            <h1 class="text-4xl lg:text-5xl font-black tracking-tight uppercase bg-gradient-to-r from-indigo-700 via-blue-600 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm mb-4">
+                ANALISIS TARIKAN & CAKUPAN LAYANAN
+            </h1>
+        </div>
+
+        <div class="z-20 w-full max-w-[1600px] grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+            
+            <!-- Diagram Bar -->
+            <div class="bg-white/90 backdrop-blur-md p-6 lg:p-8 rounded-3xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.08)] flex flex-col reveal reveal-delay-1">
+                <div class="flex items-center mb-6 shrink-0">
+                    <svg class="w-6 h-6 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    <h3 class="text-xl lg:text-2xl font-black text-gray-800 tracking-tight uppercase">Jumlah Kelurahan Dilayani</h3>
+                </div>
+                <div class="relative w-full h-[400px] lg:h-[500px]">
+                    <canvas id="barChartKelurahan"></canvas>
+                </div>
+            </div>
+
+            <!-- Diagram Pie + Custom Scrollable Legend -->
+            <div class="bg-white/90 backdrop-blur-md p-6 lg:p-8 rounded-3xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.08)] flex flex-col reveal reveal-delay-2">
+                <div class="flex items-center mb-6 shrink-0">
+                    <svg class="w-6 h-6 text-emerald-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                    <h3 class="text-xl lg:text-2xl font-black text-gray-800 tracking-tight uppercase">Distribusi Beban Pasien</h3>
+                </div>
+                
+                <div class="flex flex-col lg:flex-row w-full gap-8 h-[500px] lg:h-[500px]">
+                    <div class="relative w-full lg:w-1/2 flex items-center justify-center min-h-[250px] lg:min-h-0 h-full">
+                        <canvas id="pieChartBeban"></canvas>
+                    </div>
+                    <div class="w-full lg:w-1/2 overflow-y-auto custom-scroll pr-3 flex flex-col bg-gray-50/80 rounded-2xl border border-gray-100 p-4 h-[250px] lg:h-full" id="customLegendPie">
+                        <!-- Legend akan diisi oleh Javascript -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECTION 4: KESIMPULAN -->
+    <!-- ========================================== -->
+    <section id="section-kesimpulan" class="w-full min-h-[80vh] relative flex flex-col items-center justify-center bg-gray-900 text-white overflow-hidden z-20 py-20 px-6">
+        
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#1e293b,transparent)] opacity-50"></div>
+        
+        <svg class="absolute top-20 right-10 lg:right-32 w-24 h-24 text-white/5" fill="currentColor" viewBox="0 0 100 100">
+            <pattern id="dots3" x="0" y="0" width="15" height="15" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="2"></circle></pattern>
+            <rect x="0" y="0" width="100" height="100" fill="url(#dots3)"></rect>
+        </svg>
+
+        <div class="z-20 w-full max-w-6xl">
+            <div class="text-center mb-16 reveal">
+                <span class="inline-block border border-gray-600 text-gray-300 bg-gray-800 py-1.5 px-5 rounded-full text-xs font-bold uppercase tracking-widest mb-4 shadow-sm">
+                    Tahap Akhir
+                </span>
+                <h2 class="text-4xl lg:text-5xl font-black tracking-tight uppercase bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+                    Kesimpulan & Saran
+                </h2>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                
+                <div class="bg-white/5 backdrop-blur-md p-8 rounded-3xl border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-300 reveal reveal-delay-1">
+                    <div class="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/30">
+                        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-extrabold text-gray-100 mb-3 tracking-tight">Cakupan Layanan Terpusat</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed font-medium">
+                        Analisis Huff Model mengonfirmasi adanya tarikan pasien yang kuat menuju rumah sakit besar dengan kapasitas tinggi. Hal ini menciptakan area layanan dominan (catchment area) yang terpusat di beberapa titik di Surabaya Timur.
+                    </p>
+                </div>
+
+                <div class="bg-white/5 backdrop-blur-md p-8 rounded-3xl border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-300 reveal reveal-delay-2">
+                    <div class="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center mb-6 border border-indigo-500/30">
+                        <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-extrabold text-gray-100 mb-3 tracking-tight">Beban Pasien & Aksesibilitas</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed font-medium">
+                        Visualisasi OD Matrix menunjukkan penumpukan rute menuju segelintir rumah sakit tipe A/B. Temuan ini menyoroti perlunya perhatian khusus pada area blanks spot dengan beban pasien tinggi namun masih jauh dari jangkauan RS optimal.
+                    </p>
+                </div>
+
+                <div class="bg-white/5 backdrop-blur-md p-8 rounded-3xl border border-white/10 shadow-sm hover:bg-white/10 transition-colors duration-300 reveal reveal-delay-3">
+                    <div class="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-6 border border-emerald-500/30">
+                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-extrabold text-gray-100 mb-3 tracking-tight">Rekomendasi Perencanaan</h3>
+                    <p class="text-sm text-gray-400 leading-relaxed font-medium">
+                        Diperlukan kebijakan pemerataan kapasitas pelayanan kesehatan. Optimalisasi sarana pada rumah sakit tipe C atau peningkatan aksesibilitas melalui transportasi umum ke area blanks spot menjadi prioritas perencanaan ke depan.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- SECTION 5: FOOTER -->
+    <!-- ========================================== -->
+    <footer class="w-full bg-gray-950 text-white pt-16 pb-12 px-6 relative overflow-hidden z-20 border-t border-gray-800">
+        <div class="max-w-6xl mx-auto flex flex-col items-center text-center reveal">
+            <!-- Judul Footer -->
+            <h2 class="text-3xl md:text-4xl font-black mb-4 tracking-widest bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent uppercase">
+                Terima Kasih
+            </h2>
+            
+            <!-- Kalimat Penutup -->
+            <p class="text-gray-400 text-sm md:text-base max-w-2xl mb-12 font-medium">
+                Semoga semua yang presentasi hari ini, nilai SIP nya A (AMIN).
+            </p>
+            
+            <!-- Daftar Kelompok -->
+            <div class="w-full border-t border-white/10 pt-8 mt-2">
+                <p class="text-xs text-gray-500 font-bold tracking-widest uppercase mb-6">Disusun Oleh Kelompok 06 :</p>
+                
+                <div class="flex flex-wrap justify-center gap-x-8 gap-y-4">
+                    <!-- Silakan ganti Nama & NRP di bawah ini -->
+                    <div class="text-sm bg-white/5 px-4 py-2 rounded-lg border border-white/10"><span class="font-bold text-gray-200">Maulia Rizqy</span> <span class="text-blue-400 font-mono text-xs ml-2">5015251023</span></div>
+                    <div class="text-sm bg-white/5 px-4 py-2 rounded-lg border border-white/10"><span class="font-bold text-gray-200">Weni Dian Yuniasari</span> <span class="text-blue-400 font-mono text-xs ml-2">5015251035</span></div>
+                    <div class="text-sm bg-white/5 px-4 py-2 rounded-lg border border-white/10"><span class="font-bold text-gray-200">⁠Nafisha Garneta Nuha</span> <span class="text-blue-400 font-mono text-xs ml-2">5015251084</span></div>
+                    <div class="text-sm bg-white/5 px-4 py-2 rounded-lg border border-white/10"><span class="font-bold text-gray-200">Alaicha Rahmadhania</span> <span class="text-blue-400 font-mono text-xs ml-2">5015251088</span></div>
+                    <div class="text-sm bg-white/5 px-4 py-2 rounded-lg border border-white/10"><span class="font-bold text-gray-200">Leonardo Tosya B. A.</span> <span class="text-blue-400 font-mono text-xs ml-2">5015251125</span></div>
+                    <div class="text-sm bg-white/5 px-4 py-2 rounded-lg border border-white/10"><span class="font-bold text-gray-200">Nabila Aurielia U.</span> <span class="text-blue-400 font-mono text-xs ml-2">5015251162</span></div>
+                    <div class="text-sm bg-white/5 px-4 py-2 rounded-lg border border-white/10"><span class="font-bold text-gray-200">Abraham Erta J. Purba</span> <span class="text-blue-400 font-mono text-xs ml-2">5015251170</span></div>
+                </div>
+            </div>
+            
+            <p class="text-[10px] text-gray-600 font-medium mt-12 tracking-wider">
+                &copy; 2026 SIP, Design by @leonard.tba
+            </p>
+        </div>
+        
+        <!-- Tombol Kembali ke Atas (Bawah Kanan Footer) -->
+        <a href="#" class="absolute bottom-10 right-10 flex items-center justify-center w-12 h-12 bg-white/10 backdrop-blur-md border border-gray-700 rounded-full shadow-lg text-white opacity-50 hover:opacity-100 hover:bg-emerald-500 hover:border-emerald-500 hover:text-white transition-all duration-300 group cursor-pointer" title="Kembali ke Atas">
+            <svg class="w-6 h-6 transform transition-transform group-hover:-translate-y-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 15l7-7 7 7"></path></svg>
+        </a>
+    </footer>
+
+    <!-- JS LOGIC -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Animasi Fade Scroll (Intersection Observer)
+        document.addEventListener("DOMContentLoaded", function() {
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.15 
+            };
+
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                    }
+                });
+            }, observerOptions);
+
+            const revealElements = document.querySelectorAll('.reveal');
+            revealElements.forEach((el) => {
+                observer.observe(el);
+            });
+        });
+
+        // Konfigurasi Peta
+        const databaseFotoRS = {
+            "RS Umum Daerah Dr. Soetomo": "https://manajemenrumahsakit.net/wp-content/uploads/2012/11/rsud-soetomo.jpg",
+            "RS Universitas Airlangga": "https://unair.ac.id/wp-content/uploads/2021/01/PicsArt_01-20-02.17.19-scaled-1.jpg",
+            "RS Premier Surabaya": "https://www.rspremiersurabaya.com/cfind/source/images/surabaya/rumah-sakit-premier-surabaya-nologo.png",
+            "RS Jiwa Menur": "https://www.transaksion.com/wp-content/uploads/2025/05/RSJ-Menur-Surabaya.jpg",
+            "RS Manyar Medical Centre": "https://ik.imagekit.io/tvlk/xpe-asset/AyJ40ZAo1DOyPyKLZ9c3RGQHTP2oT4ZXW+QmPVVkFQiXFSv42UaHGzSmaSzQ8DO5QIbWPZuF+VkYVRk6gh-Vg4ECbfuQRQ4pHjWJ5Rmbtkk=/7638888682979/RS%2520Manyar%2520Medical%2520Centre%2520Surabaya-fa7e2afd-4556-404c-a43e-14087dcda699.jpeg?tr=q-60,c-at_max,w-720,h-1280&_src=imagekit", 
+            "RS Mitra Keluarga Kenjeran": "https://tse3.mm.bing.net/th/id/OIP.mRcHpJIMK0F5qUIAStzEmwHaGN?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
+            "RS Onkologi": "https://lh3.googleusercontent.com/p/AF1QipPf4l_WZq1b1qtXOXUcyyk6mjs83WrtnoN9iszg=s0",
+            "RS Umum Royal Surabaya": "https://tse4.mm.bing.net/th/id/OIP.lq-gOhqmNm8WYa0cY61SzQHaE8?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
+            "Rumah Sakit Ibu dan Anak Kendangsari": "https://1.bp.blogspot.com/-jKWQgFWhaT0/YYzliqLaR2I/AAAAAAAAUCM/vxp7KfRkYwgPlyizt6qjU6-4LqSU_eHvQCLcBGAsYHQ/s997/RSIA%2BKendangsari%2BMERR%2BJAdwal%2BPraktek%2BDokter.jpg",
+            "RS Umum Daerah Eka Candrarini":"https://gapura.surabaya.go.id/storage/rs-eka-chandrarini1.jpg",
+            "Rumah Sakit Waron Hospital":"https://toyaindonesia.com/storage/projects/dji-waron-compressed-1760438954.webp",
+            "RS Gigi dan Mulut FKG Universitas Airlangga":"https://cdn.antaranews.com/cache/730x487/2021/09/16/RSGM-1.jpg",
+            "RS Husada Utama Surabaya":"https://online.husadautamahospital.com/img/profil/_MG_0036edit.jpg",
+            "RS Ubaya":"https://rs.ubaya.ac.id/storage/sites/19/2023/03/RS-UBAYA-640x480.jpg",
+            "RS Umum Daerah Haji Provinsi Jawa Timur":"https://cdn-healthcare.hellohealthgroup.com/hospitals/id/rsu-haji-surabaya-120220211.png?w=3840&q=75",
+            "RS Umum Siloam Hospitals Surabaya":"https://3.bp.blogspot.com/-SYSWfi2xNKE/VmEMmJ65VuI/AAAAAAAACkI/CzkLKgoOXJU/s1600/RS%2BSiloam%2BHospitals%2BSurabaya.jpg",
+            "RS Ibu dan Anak Putri Surabaya":"https://praktekdokter.info/wp-content/uploads/2019/11/RS-putri-surabaya.jpg",
+            "RS Gotong Royong":"https://blog-media.lifepal.co.id/app/uploads/sites/3/2022/12/13221048/rumah-sakit-gotong-royong.jpg",
+            "RS Ibu dan Anak Pura Raharja":"https://puraraharja.com/wp-content/uploads/2023/09/Kasir-01.jpg",
+            "RS Ibu dan Anak Ferina":"https://www.ferinahospital.com/wp-content/uploads/2023/10/RSIA-Ferina.jpeg",
+            "RS Ibu dan Anak Adi Guna":"https://tse1.mm.bing.net/th/id/OIP.LiR4L1pam75CinQVn5ukzgHaEK?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
+            "RS Ibu dan Anak Kendangsari Merr":""
+        };
+
+        const map = L.map('map').setView([-7.250445, 112.768845], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+
+        map.createPane('paneKelurahan'); map.getPane('paneKelurahan').style.zIndex = 300; 
+        map.createPane('paneRute'); map.getPane('paneRute').style.zIndex = 400; 
+        map.createPane('paneLabelKelurahan'); map.getPane('paneLabelKelurahan').style.zIndex = 450; map.getPane('paneLabelKelurahan').style.pointerEvents = 'none'; 
+
+        const layerRuteAktif = L.layerGroup().addTo(map);
+
+        function tampilkanRuteJaringan(namaRS_Tujuan) {
+            layerRuteAktif.clearLayers();
+            L.geoJSON(json_Output_OD_Matrixvirtual_0, {
+                pane: 'paneRute', 
+                filter: function(feature) { return feature.properties.destination_id === namaRS_Tujuan; },
+                style: function(feature) { return { color: '#10b981', weight: 2.5, opacity: 0.8 }; }
+            }).addTo(layerRuteAktif);
+        }
+
+        let rekapAnalisisRS = {};
+        let batasBebanTop2 = 0;
+        let dominansiKelurahan = {}; 
+        let warnaRumahSakit = {}; 
+        const paletWarna = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#06b6d4', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#14b8a6', '#8b5cf6', '#d946ef', '#0ea5e9'];
+        let colorIndex = 0;
+
+        if (typeof json_Output_OD_Matrixvirtual_0 !== 'undefined') {
+            let tempAliran = {}; 
+            json_Output_OD_Matrixvirtual_0.features.forEach(od => {
+                let dest = od.properties.destination_id;
+                let origin = od.properties.origin_id;
+                let beban = parseFloat(od.properties.BEBAN_PASIEN) || 0;
+                
+                if (!rekapAnalisisRS[dest]) { 
+                    rekapAnalisisRS[dest] = { totalBeban: 0, kelurahan: new Set() }; 
+                    warnaRumahSakit[dest] = paletWarna[colorIndex % paletWarna.length];
+                    colorIndex++;
+                }
+                rekapAnalisisRS[dest].totalBeban += beban;
+                if (origin) rekapAnalisisRS[dest].kelurahan.add(origin);
+
+                if (origin) {
+                    if (!tempAliran[origin]) tempAliran[origin] = {};
+                    if (!tempAliran[origin][dest]) tempAliran[origin][dest] = 0;
+                    tempAliran[origin][dest] += beban;
+                }
+            });
+
+            for (let kel in tempAliran) {
+                let maxBeban = -1;
+                let rsDominan = null;
+                for (let rs in tempAliran[kel]) {
+                    if (tempAliran[kel][rs] > maxBeban) { maxBeban = tempAliran[kel][rs]; rsDominan = rs; }
+                }
+                dominansiKelurahan[kel] = rsDominan;
+            }
+
+            let daftarBeban = [];
+            for (let rs in rekapAnalisisRS) { daftarBeban.push(rekapAnalisisRS[rs].totalBeban); }
+            daftarBeban.sort((a, b) => b - a);
+            if (daftarBeban.length > 1) { batasBebanTop2 = daftarBeban[1]; } else if (daftarBeban.length === 1) { batasBebanTop2 = daftarBeban[0]; }
+
+            let dominanSet = new Set(Object.values(dominansiKelurahan));
+            let htmlLegenda = '';
+            dominanSet.forEach(rs => {
+                if (rs) {
+                    htmlLegenda += `
+                    <div class="flex items-center hover:bg-gray-50 p-1 rounded transition-colors">
+                        <span class="w-4 h-4 rounded-full mr-3 shadow-sm shrink-0 border border-gray-200" style="background-color: ${warnaRumahSakit[rs]}"></span>
+                        <span class="text-[10px] text-gray-700 font-bold leading-tight">${rs}</span>
+                    </div>`;
+                }
+            });
+            const legendContentElement = document.getElementById('legend-content');
+            if (legendContentElement) legendContentElement.innerHTML = htmlLegenda;
+        }
+
+        let isModeCatchment = false; 
+
+        function dapatkanStyleKelurahan(feature) {
+            if (!isModeCatchment) {
+                return { color: '#94a3b8', weight: 1.5, fillColor: '#f1f5f9', fillOpacity: 0.2 };
+            } else {
+                let namaDesa = feature.properties.DESA;
+                let rsDominan = dominansiKelurahan[namaDesa];
+                let warnaArea = rsDominan ? warnaRumahSakit[rsDominan] : '#cccccc'; 
+                return { color: '#ffffff', weight: 1, fillColor: warnaArea, fillOpacity: 0.65 };
+            }
+        }
+
+        const layerKelurahan = L.geoJSON(json_BatasAdministrasiKelurahan_3, {
+            pane: 'paneKelurahan',
+            style: dapatkanStyleKelurahan,
+            onEachFeature: function (feature, layer) {
+                if (feature.properties.DESA) { layer.bindTooltip(feature.properties.DESA, { permanent: true, direction: 'center', className: 'label-kelurahan', pane: 'paneLabelKelurahan' }); }
+                layer.on('mouseover', function() { if (!isModeCatchment) { layer.setStyle({ fillOpacity: 0.4, weight: 2, color: '#3b82f6' }); } else { layer.setStyle({ fillOpacity: 0.85, weight: 2, color: '#1e293b' }); } });
+                layer.on('mouseout', function() { layer.setStyle(dapatkanStyleKelurahan(feature)); });
+                layer.on('click', function() {
+                    const infoKelurahan = document.getElementById('info-kelurahan');
+                    let namaDesa = feature.properties.DESA;
+                    let infoDominansi = "";
+                    if (isModeCatchment && dominansiKelurahan[namaDesa]) {
+                        infoDominansi = `<div class="mt-3 border-t border-gray-200 pt-3"><p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Dominansi Layanan RS</p><p class="text-xs font-bold text-blue-700">${dominansiKelurahan[namaDesa]}</p></div>`;
+                    }
+                    infoKelurahan.innerHTML = `<div class="inline-block border border-emerald-400 rounded-full px-2 py-0.5 mb-2 bg-emerald-50"><span class="text-[9px] font-bold text-emerald-600 tracking-wider">AREA</span></div><h3 class="font-extrabold text-gray-800 text-lg leading-tight uppercase tracking-tight">${namaDesa || '-'}</h3><div class="mt-3 bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><p class="text-xs text-gray-500 font-semibold mb-1">JUMLAH PENDUDUK</p><p class="text-base font-black text-blue-600">${feature.properties['JML PENDUDUK'] || '0'} Jiwa</p>${infoDominansi}</div>`;
+                });
+            }
+        });
+
+        const iconStandar = L.divIcon({ className: 'custom-div-icon', html: `<div class="icon-rs" style="width: 24px; height: 24px;"><div class="icon-rs-horizontal"></div><div class="icon-rs-vertical"></div></div>`, iconSize: [24, 24], iconAnchor: [12, 12] });
+        const iconBebanTertinggi = L.divIcon({ className: 'custom-div-icon', html: `<div class="icon-rs-max" style="width: 30px; height: 30px;"><div class="icon-rs-horizontal-max"></div><div class="icon-rs-vertical-max"></div></div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+
+        const markersPetaRS = {};
+
+        const layerRS = L.geoJSON(json_RumahSakit_5, {
+            pointToLayer: function (feature, latlng) { 
+                let dataRS = rekapAnalisisRS[feature.properties.NAMA_RS];
+                let bebanRS_Ini = dataRS ? dataRS.totalBeban : 0;
+                let marker;
+                if (bebanRS_Ini > 0 && bebanRS_Ini >= batasBebanTop2 - 0.1) { marker = L.marker(latlng, {icon: iconBebanTertinggi}); } else { marker = L.marker(latlng, {icon: iconStandar}); }
+                markersPetaRS[feature.properties.NAMA_RS] = marker; return marker;
+            },
+            onEachFeature: function (feature, layer) {
+                layer.bindTooltip(`<strong class="text-sm font-bold text-blue-800">${feature.properties.NAMA_RS || 'Faskes'}</strong>`, { direction: 'top', offset: [0, -15], opacity: 0.95 });
+                layer.on('click', function() {
+                    const infoPanel = document.getElementById('info-panel');
+                    const namaRumahSakit = feature.properties.NAMA_RS || 'Data Tidak Tersedia';
+                    let urlFoto = feature.properties.FOTO || databaseFotoRS[namaRumahSakit] || 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80';
+                    let dataAnalisis = rekapAnalisisRS[namaRumahSakit]; let totalBeban = dataAnalisis ? dataAnalisis.totalBeban : 0;
+                    let daftarKelurahan = dataAnalisis ? Array.from(dataAnalisis.kelurahan) : []; let jumlahKelurahan = daftarKelurahan.length;
+                    
+                    let htmlKelurahan = jumlahKelurahan > 0 ? daftarKelurahan.map(k => `<span class="inline-block bg-white text-gray-600 text-[10px] px-2 py-1 rounded-md border border-gray-200 mr-1 mb-1">${k}</span>`).join('') : '<span class="text-xs text-gray-400">Belum ada data jangkauan OD</span>';
+                    let badgeTertinggi = (totalBeban > 0 && totalBeban >= batasBebanTop2 - 0.1) ? `<span class="inline-block bg-gradient-to-r from-orange-400 to-red-500 text-white py-1 px-3 rounded-full text-[10px] font-bold uppercase tracking-wide shadow-sm ml-2">BEBAN TERTINGGI</span>` : '';
+                    let indikatorWarna = isModeCatchment && warnaRumahSakit[namaRumahSakit] ? `<div class="mt-3 flex items-center text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Warna Catchment: <span class="ml-2 inline-block w-4 h-4 rounded-full shadow-sm border border-gray-200" style="background-color: ${warnaRumahSakit[namaRumahSakit]}"></span></div>` : '';
+
+                    infoPanel.innerHTML = `<div class="w-full h-36 rounded-xl overflow-hidden mb-4 shadow-sm border border-gray-200 relative"><img src="${urlFoto}" alt="${namaRumahSakit}" class="w-full h-full object-cover"><div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div></div><div class="flex items-center mb-2"><span class="inline-block border border-emerald-400 text-emerald-600 bg-emerald-50 py-0.5 px-3 rounded-full text-[10px] font-bold uppercase tracking-wide">TIPE ${feature.properties.TIPE || '-'}</span>${badgeTertinggi}</div><h3 class="font-extrabold text-gray-800 text-xl leading-tight mb-2">${namaRumahSakit}</h3><div class="flex flex-col space-y-1 text-sm text-gray-500 font-medium mb-4"><span>Kapasitas: <b class="text-gray-700">${feature.properties.KAPASITAS || '0'}</b> Pasien</span>${indikatorWarna}</div><div class="mt-4 p-4 bg-gradient-to-br from-blue-50 to-emerald-50 rounded-xl border border-blue-100 shadow-inner"><h4 class="text-xs font-bold text-blue-800 uppercase mb-3 flex items-center tracking-wider border-b border-blue-100 pb-2"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>Analisis OD</h4><div class="mb-4"><p class="text-[10px] text-gray-500 font-bold uppercase mb-1">Total Beban Pasien</p><p class="text-3xl font-black text-emerald-600 bg-clip-text">${Math.round(totalBeban)}</p></div><div><div class="flex items-center justify-between mb-2"><p class="text-[10px] text-gray-500 font-bold uppercase">Melayani Wilayah</p><span class="bg-blue-100 text-blue-700 border border-blue-200 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">${jumlahKelurahan} Kelurahan</span></div><div class="max-h-24 overflow-y-auto custom-scroll pr-1 mt-1">${htmlKelurahan}</div></div></div><button id="btn-lihat-rute" class="mt-5 w-full bg-gradient-to-r from-blue-600 to-emerald-400 hover:from-blue-700 hover:to-emerald-500 text-white text-sm font-bold py-3 px-4 rounded-full transition-all duration-300 shadow-md transform hover:-translate-y-0.5">Lihat Rute Jaringan</button>`;
+                    document.getElementById('btn-lihat-rute').addEventListener('click', function() { tampilkanRuteJaringan(namaRumahSakit); });
+                });
+            }
+        });
+
+        layerKelurahan.addTo(map); layerRS.addTo(map);
+
+        document.getElementById('toggle-kelurahan').addEventListener('change', function(e) { e.target.checked ? map.addLayer(layerKelurahan) : map.removeLayer(layerKelurahan); });
+        document.getElementById('toggle-rs').addEventListener('change', function(e) { e.target.checked ? map.addLayer(layerRS) : map.removeLayer(layerRS); });
+        document.getElementById('toggle-catchment').addEventListener('change', function(e) { 
+            isModeCatchment = e.target.checked; 
+            const legendBox = document.getElementById('legend-catchment');
+            layerKelurahan.eachLayer(function(layer) { layer.setStyle(dapatkanStyleKelurahan(layer.feature)); });
+            if (isModeCatchment) { layerRuteAktif.clearLayers(); legendBox.classList.remove('hidden'); } else { legendBox.classList.add('hidden'); }
+        });
+
+        const searchInput = document.getElementById('search-rs'); const searchResults = document.getElementById('search-results');
+        searchInput.addEventListener('input', function(e) {
+            const val = e.target.value.toLowerCase(); searchResults.innerHTML = '';
+            if (!val) { searchResults.classList.add('hidden'); return; }
+            const filteredRS = json_RumahSakit_5.features.filter(f => f.properties.NAMA_RS && f.properties.NAMA_RS.toLowerCase().includes(val));
+            if (filteredRS.length > 0) {
+                searchResults.classList.remove('hidden');
+                filteredRS.forEach(f => {
+                    const div = document.createElement('div'); div.className = 'px-4 py-3 hover:bg-emerald-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100 last:border-0 font-semibold transition-colors'; div.textContent = f.properties.NAMA_RS;
+                    div.onclick = () => {
+                        const lng = f.geometry.coordinates[0]; const lat = f.geometry.coordinates[1];
+                        map.flyTo([lat, lng], 16, { duration: 1.5 });
+                        if (markersPetaRS[f.properties.NAMA_RS]) { markersPetaRS[f.properties.NAMA_RS].fire('click'); }
+                        searchResults.classList.add('hidden'); searchInput.value = f.properties.NAMA_RS;
+                    };
+                    searchResults.appendChild(div);
+                });
+            } else { searchResults.classList.add('hidden'); }
+        });
+        document.addEventListener('click', function(e) { if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) { searchResults.classList.add('hidden'); } });
+
+        // LOGIKA CHART.JS
+        const dataKelurahanRS = {
+            labels: [
+                "RS Manyar Medical Centre", "RS Mitra Keluarga Kenjeran", "RS Umum Daerah Eka Candrarini", "Rumah Sakit Waron Hospital", 
+                "RS Jiwa Menur", "RS Umum Daerah Dr. Soetomo", "RS Gigi dan Mulut FKG Unair", "RS Husada Utama Surabaya", 
+                "RS Premier Surabaya", "RS Ubaya", "RS Umum Daerah Haji Jatim", "RS Umum Royal Surabaya", 
+                "RS Umum Siloam Hospitals", "RS Universitas Airlangga", "RSIA Kendangsari", "RSIA Putri Surabaya", 
+                "RS Gotong Royong", "RSIA Pura Raharja", "RS Onkologi", "RSIA Ferina", "RSIA Adi Guna", "RSIA Kendangsari Merr"
+            ],
+            data: [41, 34, 41, 41, 41, 41, 41, 41, 41, 41, 41, 39, 41, 41, 8, 25, 37, 39, 5, 1, 6, 7]
+        };
+
+        const ctxBar = document.getElementById('barChartKelurahan').getContext('2d');
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: dataKelurahanRS.labels,
+                datasets: [{
+                    label: 'Jumlah Kelurahan Dilayani',
+                    data: dataKelurahanRS.data,
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: 'rgba(37, 99, 235, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 24, 39, 0.9)', titleFont: { family: 'Plus Jakarta Sans', size: 13 }, bodyFont: { family: 'Plus Jakarta Sans', size: 12 }, padding: 10, cornerRadius: 8
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(243, 244, 246, 1)' }, ticks: { font: { family: 'Plus Jakarta Sans', size: 11 } } },
+                    x: { grid: { display: false }, ticks: { font: { family: 'Plus Jakarta Sans', size: 10 }, maxRotation: 45, minRotation: 45 } }
+                }
+            }
+        });
+
+        // Data Diagram Lingkaran + Custom HTML Legend
+        let labelPie = [];
+        let dataPie = [];
+        let bgColorsPie = [];
+        
+        if (Object.keys(rekapAnalisisRS).length > 0) {
+            for (const [rs, data] of Object.entries(rekapAnalisisRS)) {
+                if (data.totalBeban > 0) {
+                    labelPie.push(rs);
+                    dataPie.push(Math.round(data.totalBeban));
+                    bgColorsPie.push(warnaRumahSakit[rs] || '#94a3b8');
+                }
+            }
+        } else {
+            labelPie = ["Data Belum Tersedia"];
+            dataPie = [100];
+            bgColorsPie = ['#e2e8f0'];
+        }
+
+        const ctxPie = document.getElementById('pieChartBeban').getContext('2d');
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: labelPie,
+                datasets: [{
+                    data: dataPie,
+                    backgroundColor: bgColorsPie,
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false }, 
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 24, 39, 0.9)', titleFont: { family: 'Plus Jakarta Sans', size: 13 }, bodyFont: { family: 'Plus Jakarta Sans', size: 12 }, padding: 10, cornerRadius: 8,
+                        callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed + ' Pasien'; } return label; } }
+                    }
+                }
+            }
+        });
+
+        // Generate Custom Legend List HTML
+        const legendContainer = document.getElementById('customLegendPie');
+        if (legendContainer && labelPie.length > 0) {
+            let legendHTML = '<ul class="flex flex-col space-y-1.5 w-full pb-2">';
+            labelPie.forEach((label, index) => {
+                legendHTML += `
+                    <li class="flex items-center justify-between text-xs text-gray-700 bg-white hover:bg-emerald-50 border border-gray-100 p-2 rounded-lg transition-colors duration-200">
+                        <div class="flex items-center overflow-hidden mr-2">
+                            <span class="w-3 h-3 rounded-full mr-2.5 shrink-0 shadow-sm border border-gray-200" style="background-color: ${bgColorsPie[index]}"></span>
+                            <span class="font-semibold truncate" title="${label}">${label}</span>
+                        </div>
+                        <span class="font-black text-emerald-600 bg-emerald-100/50 px-2 py-0.5 rounded-md">${dataPie[index]}</span>
+                    </li>
+                `;
+            });
+            legendHTML += '</ul>';
+            legendContainer.innerHTML = legendHTML;
+        }
+
+    </script>
+</body>
+</html>
